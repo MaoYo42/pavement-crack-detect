@@ -1,0 +1,22 @@
+# Environments
+.env
+.venv/
+venv/
+env/
+gui_venv/
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Outputs
+outputs/
+
+# Models
+*.pt
+*.pth
+
+# OS
+.DS_Store
+Thumbs.db
