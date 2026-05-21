@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 多模态裂缝智能分割分析平台</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>路面裂缝辅助标注平台 - 专业版</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -13,67 +13,152 @@
         <header class="glass-header">
             <div class="logo">
                 <i class="fa-solid fa-layer-group"></i>
-                <h1>DeepCrack <span>3D Studio</span></h1>
+                <h1>路面裂缝<span>辅助标注平台</span></h1>
             </div>
-            <div class="model-badge">
-                <span class="pulse"></span> 巅峰版 U-Net (ResNet34) 已就绪
+            <div class="header-right">
+                <div class="model-badge">
+                    <span class="pulse"></span>
+                    模型：U-Net
+                </div>
+                <div class="user-panel" id="user-panel">
+                    <!-- 动态渲染登录状态 -->
+                    <button class="btn secondary small-btn" onclick="openAuthModal('login')">登录</button>
+                    <button class="btn primary small-btn" onclick="openAuthModal('register')">注册</button>
+                </div>
             </div>
         </header>
 
-        <main class="dashboard">
+        <main class="dashboard" id="main-dashboard" style="display: none;">
             <div class="panel upload-panel glass-panel">
-                <h2><i class="fa-solid fa-cloud-arrow-up"></i> 导入原始图像</h2>
-                <p>将待分析的高程深度(Def)、细节特征(Det)或灰度图像拖拽至此。系统自动归一缩放为 1024×1024 尺寸输入流。</p>
-                <div class="drop-zone" id="drop-zone">
-                    <i class="fa-regular fa-image"></i>
-                    <span class="drop-text">点击或拖拽文件到这里</span>
-                    <input type="file" id="file-input" accept="image/*" hidden>
+                <div class="tabs">
+                    <button class="tab-btn active" data-target="#tab-single">
+                        <i class="fa-solid fa-image"></i> 推理分析
+                    </button>
+                    <button class="tab-btn" data-target="#tab-batch">
+                        <i class="fa-solid fa-folder-tree"></i> 批量处理
+                    </button>
+                    <button class="tab-btn" data-target="#tab-history" onclick="fetchMyHistory()">
+                        <i class="fa-solid fa-clock-rotate-left"></i> 历史记录
+                    </button>
+                    <button class="tab-btn admin-only" data-target="#tab-admin" onclick="fetchAdminData()" style="display: none;">
+                        <i class="fa-solid fa-user-shield"></i> 系统管理
+                    </button>
                 </div>
-                <div class="action-bar">
-                    <button id="analyze-btn" class="btn primary" disabled>
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> 开始 AI 智能分割
-                    </button>
-                    <button id="clear-btn" class="btn secondary">
-                        <i class="fa-solid fa-trash-can"></i> 清除
-                    </button>
+
+                <!-- 单图推理 -->
+                <div class="tab-content active" id="tab-single">
+                    <h2>上传输入图像</h2>
+                    <p>将图片拖拽到这里，或点击选择。按住 <b>空格</b> 临时隐藏红色掩膜叠加层。</p>
+                    <div class="drop-zone" id="drop-zone">
+                        <i class="fa-regular fa-image"></i>
+                        <span class="drop-text">点击或拖拽文件到此处</span>
+                        <input type="file" id="file-input" accept="image/*" hidden>
+                    </div>
+                    <div class="action-bar">
+                        <button id="analyze-btn" class="btn primary" disabled>
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> 开始分析
+                        </button>
+                        <button id="clear-btn" class="btn secondary">清空</button>
+                    </div>
+                </div>
+
+                <!-- 批量处理 -->
+                <div class="tab-content" id="tab-batch">
+                    <h2>批量处理</h2>
+                    <p>选择本地文件夹系统将通过 SSE 推送进度并在同级目录输出二值掩膜图。</p>
+                    <div class="input-group">
+                        <button id="browse-btn" class="btn secondary" style="flex: 0; padding: 0.5rem 1rem; margin-right: -0.5rem;" title="选择文件夹">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </button>
+                        <input type="text" id="folder-path" class="path-input" placeholder="输入绝对路径...">
+                    </div>
+                    <div class="batch-console" id="batch-console">
+                        <div class="progress-bar-container"><div class="progress-bar-fill" id="batch-progress"></div></div>
+                        <p id="batch-status-text">系统就绪，等待输入路径...</p>
+                        <div class="log-window" id="batch-log"></div>
+                    </div>
+                    <div class="action-bar">
+                        <button id="batch-start-btn" class="btn primary"><i class="fa-solid fa-play"></i> 启动批处理</button>
+                    </div>
+                </div>
+
+                <!-- 历史记录 -->
+                <div class="tab-content" id="tab-history">
+                    <h2>我的历史分析记录</h2>
+                    <div class="table-container" id="history-container">
+                        <!-- 动态渲染 -->
+                    </div>
+                </div>
+
+                <!-- 后台管理 -->
+                <div class="tab-content" id="tab-admin">
+                    <h2>系统级审计管理</h2>
+                    <div class="admin-subtabs">
+                        <button class="admin-subtab-btn active" onclick="switchAdminSubtab('users')">用户管理</button>
+                        <button class="admin-subtab-btn" onclick="switchAdminSubtab('tasks')">全局任务</button>
+                        <button class="admin-subtab-btn" onclick="switchAdminSubtab('logs')">系统日志</button>
+                    </div>
+                    <div class="table-container" id="admin-data-container"></div>
                 </div>
             </div>
 
+            <!-- 右侧预览区 -->
             <div class="panel results-panel glass-panel">
-                <h2><i class="fa-solid fa-chart-pie"></i> 分割分析报告</h2>
+                <h2><i class="fa-solid fa-chart-pie"></i> 分割结果面板</h2>
                 <div class="stats-container">
                     <div class="stat-card">
-                        <h3 id="damage-percent">0.00%</h3>
-                        <p>表面损伤面积比</p>
+                        <h3 id="damage-percent">0.00%</h3><p>损伤占比</p>
                     </div>
                     <div class="stat-card">
-                        <h3 id="mask-area">0</h3>
-                        <p>预测像素面积(Px²)</p>
+                        <h3 id="mask-area">0</h3><p>掩膜面积(px)</p>
                     </div>
                     <div class="stat-card">
-                        <h3 id="image-size">- x -</h3>
-                        <p>原始映射解析度</p>
+                        <h3 id="image-size">- x -</h3><p>图像尺寸</p>
                     </div>
                 </div>
 
                 <div class="preview-container" id="preview-container">
                     <div class="empty-state" id="empty-state">
                         <i class="fa-solid fa-microscope"></i>
-                        <p>等待模型接收张量进行推断</p>
+                        <p>等待图像并输出结果</p>
                     </div>
-                    
                     <div class="image-wrapper" id="image-wrapper" style="display: none;">
-                        <img id="result-img" src="" alt="分割结果">
+                        <img id="orig-img" src="" alt="原始图像">
+                        <img id="mask-overlay" src="" alt="掩膜叠加图">
                         <div class="scan-line" id="scan-line"></div>
                     </div>
+                </div>
+                <div class="hint-text" id="hint-text" style="display:none; text-align:center; color:var(--text-muted); margin-top: 1rem; font-size: 0.9rem;">
+                    按住 <kbd>空格</kbd> 隐藏掩膜图
                 </div>
             </div>
         </main>
     </div>
-    
+
+    <!-- 登录注册弹窗 -->
+    <div class="modal-overlay" id="auth-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="auth-title">登录系统</h3>
+                <i class="fa-solid fa-xmark" onclick="closeAuthModal()" style="cursor: pointer;"></i>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="auth-username" class="modal-input" placeholder="用户名">
+                <input type="password" id="auth-password" class="modal-input" placeholder="密码">
+                <select id="auth-role" class="modal-input" style="display: none; background: #111;">
+                    <option value="user">普通用户</option>
+                    <option value="admin">系统管理员</option>
+                </select>
+            </div>
+            <div class="action-bar" style="margin-top: 1.5rem;">
+                <button class="btn primary" id="auth-submit-btn" onclick="submitAuth()">确认</button>
+            </div>
+        </div>
+    </div>
+
     <div class="loader-overlay" id="loader">
         <div class="spinner"></div>
-        <p>张量网络混合运算中... (<span id="loading-text">ResNet-34 Feature Extraction</span>)</p>
+        <p>模型处理中...（<span id="loading-text">单图推理</span>）</p>
     </div>
 
     <script src="/static/script.js"></script>

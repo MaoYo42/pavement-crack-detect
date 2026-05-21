@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路面裂缝智能检测分割平台 - macOS版</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="glass-header">
+            <div class="logo">
+                <i class="fa-solid fa-layer-group"></i>
+                <h1>路面裂缝<span>智能检测分割平台</span></h1>
+            </div>
+            <div class="header-right">
+                <div class="model-badge">
+                    <span class="pulse"></span>
+                    模型：U-Net
+                </div>
+                <div class="user-panel" id="user-panel">
+                    <button class="btn secondary small-btn" onclick="openAuthModal('login')">登录</button>
+                    <button class="btn primary small-btn" onclick="openAuthModal('register')">注册</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="dashboard" id="main-dashboard" style="display: none;">
+            <div class="panel upload-panel glass-panel">
+                <div class="tabs">
+                    <button class="tab-btn active" data-target="#tab-single">
+                        <i class="fa-solid fa-image"></i> 推理分析
+                    </button>
+                    <button class="tab-btn" data-target="#tab-batch">
+                        <i class="fa-solid fa-folder-tree"></i> 批量处理
+                    </button>
+                    <button class="tab-btn" data-target="#tab-history" onclick="fetchMyHistory()">
+                        <i class="fa-solid fa-clock-rotate-left"></i> 历史记录
+                    </button>
+                    <button class="tab-btn admin-only" data-target="#tab-admin" onclick="fetchAdminData()" style="display: none;">
+                        <i class="fa-solid fa-user-shield"></i> 系统管理
+                    </button>
+                </div>
+
+                <div class="tab-content active" id="tab-single">
+                    <h2>上传输入图像</h2>
+                    <p>将图片拖拽到这里，或点击选择。按住 <b>空格</b> 临时隐藏红色掩膜叠加层。</p>
+                    <div class="drop-zone" id="drop-zone">
+                        <i class="fa-regular fa-image"></i>
+                        <span class="drop-text">点击或拖拽文件到此处</span>
+                        <input type="file" id="file-input" accept="image/*" hidden>
+                    </div>
+                    <div class="action-bar">
+                        <button id="analyze-btn" class="btn primary" disabled>
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> 开始分析
+                        </button>
+                        <button id="clear-btn" class="btn secondary">清空</button>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-batch">
+                    <h2>批量处理</h2>
+                    <p>选择本地文件夹，系统将通过 SSE 推送进度并在应用输出目录下生成掩膜图。</p>
+                    <div class="input-group">
+                        <button id="browse-btn" class="btn secondary" style="flex: 0; padding: 0.5rem 1rem; margin-right: -0.5rem;" title="选择文件夹">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </button>
+                        <input type="text" id="folder-path" class="path-input" placeholder="输入 macOS 绝对路径...">
+                    </div>
+                    <div class="batch-console" id="batch-console">
+                        <div class="progress-bar-container"><div class="progress-bar-fill" id="batch-progress"></div></div>
+                        <p id="batch-status-text">系统就绪，等待输入路径...</p>
+                        <div class="log-window" id="batch-log"></div>
+                    </div>
+                    <div class="action-bar">
+                        <button id="batch-start-btn" class="btn primary"><i class="fa-solid fa-play"></i> 启动批处理</button>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-history">
+                    <div class="section-header">
+                        <div>
+                            <h2>我的历史分析记录</h2>
+                            <p>查看你最近的单图推理与批量处理结果，便于回溯每次分割效果。</p>
+                        </div>
+                        <div class="section-badges" id="history-summary-badges"></div>
+                    </div>
+                    <div class="filter-bar">
+                        <input type="date" id="history-start-date" class="filter-input">
+                        <input type="date" id="history-end-date" class="filter-input">
+                        <select id="history-status" class="filter-input">
+                            <option value="all">全部状态</option>
+                            <option value="处理中">处理中</option>
+                            <option value="已完成">已完成</option>
+                            <option value="失败">失败</option>
+                        </select>
+                        <button class="btn secondary small-btn" id="history-filter-btn">筛选</button>
+                        <button class="btn secondary small-btn" id="history-reset-btn">重置</button>
+                    </div>
+                    <div class="table-shell" id="history-container"></div>
+                </div>
+
+                <div class="tab-content" id="tab-admin">
+                    <div class="section-header">
+                        <div>
+                            <h2>系统级审计管理</h2>
+                            <p>从用户、任务和日志三个视角查看全局运行状态。</p>
+                        </div>
+                        <div class="section-badges" id="admin-summary-badges"></div>
+                    </div>
+                    <div class="admin-subtabs segmented-tabs">
+                        <button class="admin-subtab-btn active" data-subtab="users" onclick="switchAdminSubtab('users', event)">用户管理</button>
+                        <button class="admin-subtab-btn" data-subtab="tasks" onclick="switchAdminSubtab('tasks', event)">全局任务</button>
+                        <button class="admin-subtab-btn" data-subtab="logs" onclick="switchAdminSubtab('logs', event)">系统日志</button>
+                        <button class="admin-subtab-btn" data-subtab="system" onclick="switchAdminSubtab('system', event)">系统配置</button>
+                    </div>
+                    <div class="table-shell" id="admin-data-container"></div>
+                </div>
+            </div>
+
+            <div class="panel results-panel glass-panel" id="results-panel">
+                <h2><i class="fa-solid fa-chart-pie"></i> 分割结果面板</h2>
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <h3 id="damage-percent">0.00%</h3><p>损伤占比</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="mask-area">0</h3><p>掩膜面积(px)</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="image-size">- x -</h3><p>图像尺寸</p>
+                    </div>
+                </div>
+
+                <div class="preview-container" id="preview-container">
+                    <div class="empty-state" id="empty-state">
+                        <i class="fa-solid fa-microscope"></i>
+                        <p>等待图像并输出结果</p>
+                    </div>
+                    <div class="image-wrapper" id="image-wrapper" style="display: none;">
+                        <img id="orig-img" src="" alt="原始图像">
+                        <img id="mask-overlay" src="" alt="掩膜叠加图">
+                        <div class="scan-line" id="scan-line"></div>
+                    </div>
+                </div>
+                <div class="hint-text" id="hint-text" style="display:none; text-align:center; color:var(--text-muted); margin-top: 1rem; font-size: 0.9rem;">
+                    按住 <kbd>空格</kbd> 隐藏掩膜图
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="auth-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="auth-title">登录系统</h3>
+                <i class="fa-solid fa-xmark" onclick="closeAuthModal()" style="cursor: pointer;"></i>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="auth-username" class="modal-input" placeholder="用户名">
+                <input type="password" id="auth-password" class="modal-input" placeholder="密码">
+                <p id="auth-role" class="auth-note" style="display: none;">注册后将默认创建为普通用户</p>
+            </div>
+            <div class="action-bar" style="margin-top: 1.5rem;">
+                <button class="btn primary" id="auth-submit-btn" onclick="submitAuth()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="loader-overlay" id="loader">
+        <div class="spinner"></div>
+        <p>模型处理中...（<span id="loading-text">单图推理</span>）</p>
+    </div>
+
+    <div class="modal-overlay" id="history-detail-modal">
+        <div class="modal-content glass-panel wide-modal">
+            <div class="modal-header">
+                <h3>历史记录详情</h3>
+                <i class="fa-solid fa-xmark" onclick="closeHistoryDetailModal()" style="cursor: pointer;"></i>
+            </div>
+            <div class="modal-body">
+                <div class="detail-meta" id="history-detail-meta"></div>
+                <div class="detail-images">
+                    <div><span>原图</span><img id="detail-orig-img" src="" alt="历史原图"></div>
+                    <div><span>Mask</span><img id="detail-mask-img" src="" alt="历史掩膜图"></div>
+                    <div><span>叠加图</span><img id="detail-overlay-img" src="" alt="历史叠加图"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="admin-user-modal">
+        <div class="modal-content glass-panel wide-modal">
+            <div class="modal-header">
+                <h3 id="admin-user-modal-title">创建用户</h3>
+                <i class="fa-solid fa-xmark" onclick="closeAdminUserModal()" style="cursor: pointer;"></i>
+            </div>
+            <div class="modal-body admin-form-grid">
+                <input type="hidden" id="admin-user-id">
+                <input type="text" id="admin-user-username" class="modal-input" placeholder="用户名">
+                <input type="password" id="admin-user-password" class="modal-input" placeholder="密码，不修改可留空">
+                <select id="admin-user-role" class="modal-input">
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                </select>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="admin-user-active" checked>
+                    <span>账号启用</span>
+                </label>
+            </div>
+            <div class="action-bar" style="margin-top: 1.5rem;">
+                <button class="btn secondary" onclick="closeAdminUserModal()">取消</button>
+                <button class="btn primary" onclick="saveAdminUser()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

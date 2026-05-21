@@ -1,22 +1,32 @@
-# Environments
+# 虚拟环境与环境变量
 .env
 .venv/
+app/.venv/
+.venv_macos/
 venv/
 env/
 gui_venv/
 
-# Python caching
+# Python 缓存
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
-# Outputs
+# 输出目录
 outputs/
 
-# Models
+# 模型权重
 *.pt
 *.pth
 
-# OS
+# 运行时数据
+.runtime/
+.runtime_macos/
+
+# 数据库
+*.db
+
+# 操作系统临时文件
 .DS_Store
 Thumbs.db
