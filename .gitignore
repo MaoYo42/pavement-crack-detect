@@ -6,6 +6,7 @@ app/.venv/
 venv/
 env/
 gui_venv/
+mask_label/.venv/
 
 # Python 缓存
 __pycache__/
