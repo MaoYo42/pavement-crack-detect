@@ -1,0 +1,24 @@
+# Dependabot 依赖自动更新配置
+# 每周一 UTC 00:00 检查 Python 依赖是否有安全更新
+
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "00:00"
+      timezone: "Asia/Shanghai"
+    labels:
+      - "type/enhancement"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    open-pull-requests-limit: 5
+    # 仅安全更新和补丁版本（避免大版本兼容问题）
+    ignore:
+      - dependency-name: "torch"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "torchvision"
+        update-types: ["version-update:semver-major"]
